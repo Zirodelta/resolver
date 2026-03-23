@@ -1,0 +1,9 @@
+services:
+  resolver:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./resolver-keypair.json:/keys/resolver-keypair.json:ro
+    environment:
+      - RESOLVER_KEYPAIR=/keys/resolver-keypair.json

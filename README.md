@@ -82,4 +82,4 @@ pkg/types/                   — constants, enums
 
 ## License
 
-MIT
+Apache-2.0

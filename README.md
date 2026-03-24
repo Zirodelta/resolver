@@ -69,6 +69,38 @@ INFO  transaction confirmed      {"market_id": "abc123...", "signature": "5xK...
 
 Failed resolutions (already resolved, oracle unavailable, etc.) are logged and skipped — the daemon continues to the next market.
 
+## Monitoring
+
+The resolver exposes Prometheus metrics at `/metrics` (default `:8082`).
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `METRICS_ADDR` | No | `:8082` | Address for the metrics HTTP server |
+
+### Available Metrics
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `resolver_cycles_total` | counter | Total scan cycles completed |
+| `resolver_markets_scanned` | gauge | Markets found in last scan |
+| `resolver_resolutions_total{status}` | counter | Resolutions by status (success/failure) |
+| `resolver_scan_duration_seconds` | histogram | Scan cycle duration |
+| `resolver_resolution_duration_seconds` | histogram | Per-market resolution duration |
+| `resolver_last_cycle_timestamp_seconds` | gauge | Unix timestamp of last scan |
+
+### Ready-Made Configs
+
+The `monitoring/` directory includes:
+
+- **`prometheus.yml`** — Sample scrape config to add to your Prometheus
+- **`alerts.yml`** — Alert rules (heartbeat stale, resolution failures, slow scans)
+- **`grafana-dashboard.json`** — Import into Grafana for instant visibility
+
+```bash
+# Add the scrape config to your prometheus.yml, then import the dashboard:
+# Grafana → Dashboards → Import → Upload JSON → monitoring/grafana-dashboard.json
+```
+
 ## Architecture
 
 ```

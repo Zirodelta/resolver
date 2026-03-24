@@ -1,0 +1,11 @@
+# Sample Prometheus scrape config for the Settled resolver daemon.
+# Add this to your existing prometheus.yml under scrape_configs:
+
+scrape_configs:
+  - job_name: settled-resolver
+    scrape_interval: 15s
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["resolver:8082"]  # adjust host/port to match your METRICS_ADDR
+        labels:
+          service: resolver

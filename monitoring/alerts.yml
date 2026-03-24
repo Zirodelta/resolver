@@ -1,0 +1,31 @@
+groups:
+  - name: resolver
+    rules:
+      - alert: ResolverHeartbeatStale
+        expr: |
+          time() - resolver_last_cycle_timestamp_seconds > 300
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Resolver heartbeat stale >5 minutes"
+          description: "The resolver daemon may be dead. Markets won't resolve without it."
+
+      - alert: ResolverResolutionFailures
+        expr: |
+          rate(resolver_resolutions_total{status="failure"}[15m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Resolver experiencing resolution failures"
+          description: "Check Solana RPC connectivity and market state."
+
+      - alert: ResolverScanSlow
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(resolver_scan_duration_seconds_bucket[5m]))) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Resolver scan cycle p95 >5s — Solana RPC may be degraded"

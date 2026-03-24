@@ -1,0 +1,67 @@
+{
+  "annotations": { "list": [] },
+  "description": "Settled Resolver — permissionless market resolution daemon",
+  "editable": true,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "title": "Resolver",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "collapsed": false
+    },
+    {
+      "title": "Scan Cycles",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
+      "targets": [{ "expr": "resolver_cycles_total", "instant": true, "range": false }],
+      "fieldConfig": { "defaults": { "unit": "short", "thresholds": { "steps": [{ "color": "green", "value": null }] } } },
+      "options": { "colorMode": "background", "textMode": "auto" }
+    },
+    {
+      "title": "Markets Found",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
+      "targets": [{ "expr": "resolver_markets_scanned", "instant": true, "range": false }],
+      "fieldConfig": { "defaults": { "unit": "short", "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 50 }] } } },
+      "options": { "colorMode": "background", "textMode": "auto" }
+    },
+    {
+      "title": "Resolve Failures (24h)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
+      "targets": [{ "expr": "increase(resolver_resolutions_total{status=\"failure\"}[24h])", "instant": true, "range": false }],
+      "fieldConfig": { "defaults": { "unit": "short", "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] } } },
+      "options": { "colorMode": "background", "textMode": "auto" }
+    },
+    {
+      "title": "Heartbeat Age",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 },
+      "targets": [{ "expr": "time() - resolver_last_cycle_timestamp_seconds", "instant": true, "range": false }],
+      "fieldConfig": { "defaults": { "unit": "s", "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 120 }, { "color": "red", "value": 300 }] } } },
+      "options": { "colorMode": "background", "textMode": "auto" }
+    },
+    {
+      "title": "Scan Duration (p95)",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 5 },
+      "targets": [{ "expr": "histogram_quantile(0.95, sum by (le) (rate(resolver_scan_duration_seconds_bucket[5m])))", "legendFormat": "p95" }],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "title": "Resolution Duration (p95)",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 5 },
+      "targets": [{ "expr": "histogram_quantile(0.95, sum by (le) (rate(resolver_resolution_duration_seconds_bucket[5m])))", "legendFormat": "p95" }],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    }
+  ],
+  "schemaVersion": 39,
+  "templating": { "list": [] },
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Settled Resolver",
+  "uid": "settled-resolver"
+}

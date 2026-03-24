@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"strings"
@@ -12,9 +13,11 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/Zirodelta/resolver/internal/metrics"
 	"github.com/Zirodelta/resolver/internal/resolver"
 	"github.com/Zirodelta/resolver/internal/scanner"
 )
@@ -63,6 +66,38 @@ func main() {
 		cancel()
 	}()
 
+	// ── Prometheus metrics server ──────────────────────────────────────────
+	metricsPort := getEnvDefault("METRICS_PORT", "8082")
+	metricsMux := http.NewServeMux()
+	metricsMux.Handle("/metrics", promhttp.Handler())
+	metricsMux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ok"))
+	})
+	go func() {
+		logger.Info("metrics server starting", zap.String("port", metricsPort))
+		if err := http.ListenAndServe(":"+metricsPort, metricsMux); err != nil && err != http.ErrServerClosed {
+			logger.Error("metrics server failed", zap.Error(err))
+		}
+	}()
+
+	// ── Wallet balance probe (every 60s) ──────────────────────────────────
+	go func() {
+		t := time.NewTicker(60 * time.Second)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				bal, err := client.GetBalance(ctx, cfg.Wallet.PublicKey(), rpc.CommitmentConfirmed)
+				if err == nil && bal != nil {
+					metrics.WalletSOLBalance.Set(float64(bal.Value) / 1e9)
+				}
+			}
+		}
+	}()
+
 	// Main loop.
 	ticker := time.NewTicker(cfg.PollInterval)
 	defer ticker.Stop()
@@ -82,14 +117,23 @@ func main() {
 }
 
 func runCycle(ctx context.Context, scan *scanner.Scanner, res *resolver.Resolver, logger *zap.Logger) {
+	metrics.CyclesTotal.Inc()
+
+	scanStart := time.Now()
 	markets, err := scan.FindClosedMarkets(ctx)
+	metrics.ScanDuration.Observe(time.Since(scanStart).Seconds())
+
 	if err != nil {
 		logger.Error("scan failed", zap.Error(err))
+		metrics.LastCycleTimestamp.SetToCurrentTime()
 		return
 	}
 
+	metrics.MarketsScanned.Set(float64(len(markets)))
+
 	if len(markets) == 0 {
 		logger.Debug("no resolvable markets found")
+		metrics.LastCycleTimestamp.SetToCurrentTime()
 		return
 	}
 
@@ -99,15 +143,21 @@ func runCycle(ctx context.Context, scan *scanner.Scanner, res *resolver.Resolver
 		if ctx.Err() != nil {
 			return
 		}
+		resolveStart := time.Now()
 		if err := res.Resolve(ctx, market); err != nil {
+			metrics.ResolutionsTotal.WithLabelValues("failure").Inc()
 			logger.Error("resolve failed",
 				zap.String("market_id", market.MarketIDHex()),
 				zap.String("symbol", market.Symbol),
 				zap.Error(err),
 			)
-			// Continue to next market — don't let one failure block others.
+		} else {
+			metrics.ResolutionsTotal.WithLabelValues("success").Inc()
 		}
+		metrics.ResolutionDuration.Observe(time.Since(resolveStart).Seconds())
 	}
+
+	metrics.LastCycleTimestamp.SetToCurrentTime()
 }
 
 func loadConfig() (*config, error) {

@@ -48,10 +48,21 @@ func init() {
 	copy(Discriminator[:], h[:8])
 }
 
+// Minimum sizes for backward-compatible decoding.
+// v1: original struct without NoMint/FeedHash (209 bytes)
+// v2: added NoMint (241 bytes)
+// v3: added FeedHash (273 bytes, current)
+const (
+	marketAccountSizeV1 = 209 // up to and including YesMint
+	marketAccountSizeV2 = 241 // added NoMint
+	marketAccountSizeV3 = 273 // added FeedHash (current)
+)
+
 // DecodeMarketState deserializes raw account bytes into a MarketState.
+// Backward-compatible: handles v1 (209 bytes) accounts that predate NoMint/FeedHash fields.
 func DecodeMarketState(data []byte) (*MarketState, error) {
-	if len(data) < 273 {
-		return nil, fmt.Errorf("account data too short: %d bytes (need >= 273)", len(data))
+	if len(data) < marketAccountSizeV1 {
+		return nil, fmt.Errorf("account data too short: %d bytes (need >= %d)", len(data), marketAccountSizeV1)
 	}
 
 	m := &MarketState{}
@@ -84,8 +95,16 @@ func DecodeMarketState(data []byte) (*MarketState, error) {
 	m.Authority = solana.PublicKeyFromBytes(data[144:176])
 	m.Bump = data[176]
 	m.YesMint = solana.PublicKeyFromBytes(data[177:209])
-	m.NoMint = solana.PublicKeyFromBytes(data[209:241])
-	m.FeedHash = solana.PublicKeyFromBytes(data[241:273])
+
+	// v2+ fields: NoMint (added after initial deployment)
+	if len(data) >= marketAccountSizeV2 {
+		m.NoMint = solana.PublicKeyFromBytes(data[209:241])
+	}
+
+	// v3+ fields: FeedHash (Switchboard price feed)
+	if len(data) >= marketAccountSizeV3 {
+		m.FeedHash = solana.PublicKeyFromBytes(data[241:273])
+	}
 
 	return m, nil
 }

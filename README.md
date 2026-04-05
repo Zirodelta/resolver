@@ -1,8 +1,16 @@
 # Settled Resolver
 
-Permissionless resolver daemon for the [Settled](https://settled.market) prediction market protocol on Solana.
+Permissionless resolver daemon for the [Settled](https://www.settled.pro) prediction market protocol on Solana.
 
-Scans for closed markets past their settlement time, calls `resolve_market_permissionless` on each, and earns a 10 bps USDC tip per resolution.
+Settled runs binary YES/NO prediction markets on crypto perpetual futures funding rates — 2,400+ markets across Binance, Bybit, Hyperliquid, KuCoin, and Gate. Each market resolves when the funding rate settles. This daemon does the resolving.
+
+**How it earns:** Scan for closed markets → submit `resolve_market_permissionless` → earn **10 bps (0.1%) of the market's total trading volume** as a USDC tip. First valid submission wins. Gas costs ~$0.001 on Solana.
+
+→ **[Browse live markets on settled.pro](https://www.settled.pro/predict)**  
+→ **[Read how resolvers work](https://www.settled.pro/blog/7-ways-to-earn-on-settled)**  
+→ **[API docs](https://docs.settled.pro)**
+
+---
 
 ## Quick Start
 
@@ -48,6 +56,8 @@ INFO  transaction submitted      {"market_id": "abc123...", "signature": "5xK...
 INFO  transaction confirmed      {"market_id": "abc123...", "signature": "5xK..."}
 ```
 
+---
+
 ## Configuration
 
 | Variable | Required | Default | Description |
@@ -59,15 +69,29 @@ INFO  transaction confirmed      {"market_id": "abc123...", "signature": "5xK...
 | `LOG_LEVEL` | No | `info` | `debug`, `info`, `warn`, `error` |
 | `DRY_RUN` | No | `false` | Log resolvable markets without submitting TXs |
 
+---
+
 ## How It Works
 
-1. **Scan** — `getProgramAccounts` with memcmp filters for MarketState discriminator + status=Closed
+Settled markets follow a fixed lifecycle:
+
+1. **Open** → traders buy YES/NO shares via LMSR AMM
+2. **Closed** → market passes settlement time, locked for resolution
+3. **Resolved** → resolver submits oracle proof on-chain → winning shares pay $1.00
+
+This daemon handles step 3:
+
+1. **Scan** — `getProgramAccounts` with memcmp filters for MarketState discriminator + `status=Closed`
 2. **Filter** — Only markets past their `settlement_ts` are eligible
-3. **Resolve** — Builds and submits `resolve_market_permissionless` instruction for each market
+3. **Resolve** — Builds and submits `resolve_market_permissionless` instruction with Switchboard oracle proof
 4. **Confirm** — Waits for finalized confirmation via WebSocket (falls back to polling)
 5. **Repeat** — Sleeps for `POLL_INTERVAL`, then scans again
 
 Failed resolutions (already resolved, oracle unavailable, etc.) are logged and skipped — the daemon continues to the next market.
+
+The resolver earns **0.1% of total market volume** per successful resolution. With 22,000+ markets resolving per day across the platform, active resolvers compete on speed — first valid submission wins.
+
+---
 
 ## Monitoring
 
@@ -101,6 +125,8 @@ The `monitoring/` directory includes:
 # Grafana → Dashboards → Import → Upload JSON → monitoring/grafana-dashboard.json
 ```
 
+---
+
 ## Architecture
 
 ```
@@ -111,6 +137,19 @@ pkg/pda/                     — PDA derivation (vault_state, market_state, ATAs
 pkg/state/                   — MarketState account deserialization
 pkg/types/                   — constants, enums
 ```
+
+---
+
+## Related
+
+- [Settled — Live prediction markets](https://www.settled.pro/predict)
+- [Funding rate data for 2,400+ pairs](https://www.settled.pro/rates)
+- [How resolvers earn on Settled](https://www.settled.pro/blog/7-ways-to-earn-on-settled)
+- [LMSR AMM — how Settled prices markets](https://www.settled.pro/blog/lmsr-for-funding-rates)
+- [API reference](https://docs.settled.pro)
+- [Zirodelta on GitHub](https://github.com/Zirodelta)
+
+---
 
 ## License
 
